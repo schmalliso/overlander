@@ -1,3 +1,3 @@
 # overlander
 
-A home for MongoDB vagrant setups (for driver environment testing).
+A home for MongoDB vagrant setups so I can play with MongoDB drivers without hating my life.
