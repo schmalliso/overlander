@@ -1,0 +1,5 @@
+{"_id":{"$oid":"5ae7a7c5aafc5926fe6984b2"},"item":"journal","qty":25.0,"size":{"h":14.0,"w":21.0,"uom":"cm"},"status":"A"}
+{"_id":{"$oid":"5ae7a7c5aafc5926fe6984b3"},"item":"notebook","qty":50.0,"size":{"h":8.5,"w":11.0,"uom":"in"},"status":"P"}
+{"_id":{"$oid":"5ae7a7c5aafc5926fe6984b4"},"item":"paper","qty":100.0,"size":{"h":8.5,"w":11.0,"uom":"in"},"status":"D"}
+{"_id":{"$oid":"5ae7a7c5aafc5926fe6984b5"},"item":"planner","qty":75.0,"size":{"h":22.85,"w":30.0,"uom":"cm"},"status":"D"}
+{"_id":{"$oid":"5ae7a7c5aafc5926fe6984b6"},"item":"postcard","qty":45.0,"size":{"h":10.0,"w":15.25,"uom":"cm"},"status":"A"}
