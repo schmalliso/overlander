@@ -12,7 +12,7 @@ select answer in "${options[@]}";do
             for site in "${sites[@]}"
             do
                 echo "Processing $site"
-                git -C ./sites-temp clone git@github.com:$site.git --depth=1
+                git -C ./sites-temp clone  --depth=1 git@github.com:$site.git
             done
             break
             ;;
