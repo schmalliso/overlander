@@ -56,20 +56,22 @@ for manifest in `ls ./manifests/`;
 do
     echo "Processing $manifest"
     if [[ "$manifest" == "cloud-docs" ]]; then
-        url="www.mongodb.com/docs/atlas/"
+        url="https://www.mongodb.com/docs/atlas/"
         output="atlas-master.json"
     elif [[ "$manifest" == "docs" ]]; then
-        url="www.mongodb.com/docs/manual/"
+        url="https://www.mongodb.com/docs/manual/"
         output="manual-master.json"
     elif [[ "$manifest" == "docs-realm" ]]; then
-        url="www.mongodb.com/docs/realm/"
+        url="https://www.mongodb.com/docs/realm/"
         output="realm-master.json"
     elif [[ "$manifest" == "docs-node" ]]; then
-        url="www.mongodb.com/docs/drivers/node/current"
+        url="https://www.mongodb.com/docs/drivers/node/current"
         output="node-master.json"
     else
-        echo "This isn't going to work. You've done something weird."
+        echo "Skipping this because it's probably the tmp folder."
         break
     fi
     mut-index ./manifests/$manifest/documents -o ./search-manifests/$output -u $url
 done
+#     mut-index upload -b allison-test-mut-index -p search-indexes/prd ./manifests/$manifest/documents -o $output -u $url -g
+# done
