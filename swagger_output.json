@@ -1,0 +1,147 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "REST API",
+    "description": ""
+  },
+  "host": "localhost:3000",
+  "basePath": "/",
+  "schemes": [
+    "http"
+  ],
+  "paths": {
+    "/{buildId}/documents": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "buildId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "req-id",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "req-id",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/{snootyProject}/documents": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "snootyProject",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "updated",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "req-id",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/{snootyProject}/{branch}/documents": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "snootyProject",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "branch",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "req-id",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/{snootyProject}/{branch}/documents/updated/{timestamp}": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "snootyProject",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "branch",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "timestamp",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "req-id",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    }
+  }
+}
