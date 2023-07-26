@@ -5,6 +5,7 @@ from flutter import check_type, checked
 from dataclasses import dataclass
 from typing import Optional
 
+# TODO: replace this with a flag in the DB like excludeFromSitemapIndex or the like
 excluded_repos = ["docs-404", "docs-meta", "devhub-content", "docs-mongodb-internal", 
                   "docs-mongodb-internal-base", "docs-csfle-merge", "docs-k8s-operator", 
                   "docs-php-library", "docs-ruby", "docs-mongoid", "mms-docs"]
