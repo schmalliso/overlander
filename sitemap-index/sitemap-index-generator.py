@@ -1,42 +1,147 @@
 import pymongo
 import pandas as pd
+import os
+from flutter import check_type, checked
+from dataclasses import dataclass
+from typing import Optional
+
+@checked
+@dataclass
+class SitemapUrlSuffix():
+    gitBranchName: str
+    urlSuffix: str
+    extension: str
+
+@checked
+@dataclass
+class Branch():
+    gitBranchName: str
+    active: bool
+    publishOriginalBranchName: bool
+    urlSlug: Optional[str]
+    buildsWithSnooty: bool
+
+@checked
+@dataclass
+class Repo():
+    repoName: str
+    branches: list[Branch] | None
+    prefix: str
+    baseUrl: str
+
+class ConstructRepo:
+    def __init__(self, data) -> None:
+        self.data = data
+        
+        self.repoName: str = data["repoName"]
+        self.branches = self.get_branches()
+        self.prefix = self.get_prefix()
+        self.baseUrl = self.derive_url()
+
+    def get_prefix(self) -> str:
+        if not check_type(str, self.data["prefix"]["dotcomprd"]):
+            raise TypeError
+        return self.data["prefix"]["dotcomprd"]
+
+    def derive_url(self) -> str:
+        url = "https://www.mongodb.com/" + self.prefix + "/"
+        return url
+
+    def get_branches(self) -> list[Branch] | None:
+        if not self.data["branches"]:
+            self.wonky = True
+            return None
+        branch_list: list[Branch] = []
+        for branch in self.data["branches"]:
+            new_branch = Branch(branch["gitBranchName"],
+                                branch.get("active", False),
+                                branch.get("publishOriginalBranchName", False),
+                                branch.get("urlSlug", None),
+                                branch.get("buildsWithSnooty", True))
+            branch_list.append(new_branch)
+        return branch_list
+
+    def export(self) -> Repo:
+        repo = Repo(
+            repoName=self.repoName,
+            branches=self.branches,
+            prefix=self.prefix,
+            baseUrl=self.baseUrl
+        )
+        return repo
 
 
-repos_branches = pymongo.MongoClient()["pool"].repos_branches
+class ConstructSitemapEntry:
+    def __init__(self, data: Branch) -> None:
+        self.data = data
+
+        self.gitBranchName: str = data.gitBranchName
+        self.urlSuffix = self.derive_url_suffix()
+        self.extension = self.derive_extension()
+
+    def derive_extension(self) -> str:
+        if self.data.buildsWithSnooty:
+            return "/sitemap-0.xml"
+        return "/sitemap.xml.gz"
+
+    def derive_url_suffix(self) -> str:
+        urlSuffix: str = ""
+        if self.data.urlSlug:
+            urlSuffix = self.data.urlSlug
+            return urlSuffix
+        if self.data.publishOriginalBranchName:
+            urlSuffix = self.gitBranchName
+            return urlSuffix
+        return urlSuffix
+    
+    def export(self) -> SitemapUrlSuffix:
+        suffix = SitemapUrlSuffix(
+                gitBranchName=self.gitBranchName,
+                urlSuffix=self.urlSuffix,
+                extension=self.extension
+            )
+        return suffix
+                             
+def run_validation(data) -> tuple[bool, str]:
+    valid = True
+    if not check_type(str, data["repoName"]):
+        valid = False
+        return valid, "No repo name?!"
+    if not data.get("branches"):
+        valid = False
+        return valid, "No branch entry"
+    if not (data.get("prefix") and data["prefix"].get("dotcomprd")):
+        valid = False
+        return valid, "No dotcomprd prefix entry"
+    return valid, ""
+
+repos_branches = pymongo.MongoClient(os.environ.get('SNOOTY_CONN_STRING'))["pool"].repos_branches
 
 repos_branches_data = repos_branches.find()
-sitemap_urls = []
+sitemap_urls: list[str] = []
 
-url = "https://www.mongodb.com/"
-
-for repo in repos_branches_data:
-    print(repo["repoName"])
-    sitemap_extension = "/sitemap-0.xml"
-    # Exclude repos we don't care about
-    if repo["repoName"] in ["docs-404", "docs-meta", "devhub-content", "docs-mongodb-internal", "docs-mongodb-internal-base", "docs-csfle-merge", "docs-k8s-operator", "docs-php-library", "docs-ruby", "docs-mongoid", "mms-docs"]:
+for r in repos_branches_data:
+    print(r["repoName"])
+    validity, message = run_validation(r)
+    if not validity:
+        print(message)
         continue
-    if not repo["branches"]:
+    # Skip repos that do not need sitemaps or whose sitemaps are horribly broken because built by legacy tooling
+    if r["repoName"] in ["docs-404", "docs-meta", "devhub-content", "docs-mongodb-internal", "docs-mongodb-internal-base", "docs-csfle-merge", "docs-k8s-operator", "docs-php-library", "docs-ruby", "docs-mongoid", "mms-docs"]:
+        print("Skipping")
         continue
-    for branch in repo["branches"]:
-        if branch["buildsWithSnooty"] == False: #this will be useful once we fix the drivers, mms-docs, k8s maps
-            sitemap_extension = "/sitemap.xml.gz"
-        print(branch)
-        print("branchName: " + branch["gitBranchName"])
-        if not branch["active"]:
-            continue
-        branch_url_base = url + repo["prefix"]["dotcomprd"]
-        print("URL BASE:" + branch_url_base)
-        if "urlSlug" in branch and branch["urlSlug"] is not None:
-            print("Using urlSlug for the slug")
-            sitemap_urls.append(branch_url_base + "/" + branch["urlSlug"] + sitemap_extension)
-            continue
-        if branch["publishOriginalBranchName"] == True:
-            print("Using gitBranchName for the slug")
-            sitemap_urls.append(branch_url_base + "/" + branch["gitBranchName"] + sitemap_extension)
-            continue
-        print("I guess this isn't versioned?")
-        sitemap_urls.append(branch_url_base + sitemap_extension)
+    repo = ConstructRepo(r).export()
 
+    if repo.branches:
+        for b in repo.branches:
+            if b.active:
+                print(b.gitBranchName)
+                sitemap_suffix: SitemapUrlSuffix = ConstructSitemapEntry(b).export()
+                sitemap_url: str = repo.baseUrl + sitemap_suffix.urlSuffix + sitemap_suffix.extension
+                print(sitemap_url)
+                sitemap_urls.append(sitemap_url)
+    else:
+        print("Repo has no branches.")
 
 print(sitemap_urls)
 
@@ -50,9 +155,3 @@ print(xml_data)
 # Save the XML data to a file
 with open("sitemap-index.xml", "w") as file:
     file.write(xml_data)
-
-
-## TODO: 
-# - rewrite v6.0 branch of manual to be manual ratther than v6.0, 
-# - confirm with ElizabethB how to handle 'aliases'
-# - figure out where to put this and how to handle credentials properly
