@@ -5,6 +5,10 @@ from flutter import check_type, checked
 from dataclasses import dataclass
 from typing import Optional
 
+excluded_repos = ["docs-404", "docs-meta", "devhub-content", "docs-mongodb-internal", 
+                  "docs-mongodb-internal-base", "docs-csfle-merge", "docs-k8s-operator", 
+                  "docs-php-library", "docs-ruby", "docs-mongoid", "mms-docs"]
+
 @checked
 @dataclass
 class SitemapUrlSuffix():
@@ -127,7 +131,7 @@ for r in repos_branches_data:
         print(message)
         continue
     # Skip repos that do not need sitemaps or whose sitemaps are horribly broken because built by legacy tooling
-    if r["repoName"] in ["docs-404", "docs-meta", "devhub-content", "docs-mongodb-internal", "docs-mongodb-internal-base", "docs-csfle-merge", "docs-k8s-operator", "docs-php-library", "docs-ruby", "docs-mongoid", "mms-docs"]:
+    if r["repoName"] in excluded_repos:
         print("Skipping")
         continue
     repo = ConstructRepo(r).export()
