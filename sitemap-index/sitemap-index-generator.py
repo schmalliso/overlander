@@ -4,6 +4,7 @@ import os
 from flutter import check_type, checked
 from dataclasses import dataclass
 from typing import Optional
+from posixpath import join
 
 # TODO: replace this with a flag in the DB like excludeFromSitemapIndex or the like
 excluded_repos = ["docs-404", "docs-meta", "devhub-content", "docs-mongodb-internal", 
@@ -12,14 +13,14 @@ excluded_repos = ["docs-404", "docs-meta", "devhub-content", "docs-mongodb-inter
 
 @checked
 @dataclass
-class SitemapUrlSuffix():
+class SitemapUrlSuffix:
     gitBranchName: str
     urlSuffix: str
     extension: str
 
 @checked
 @dataclass
-class Branch():
+class Branch:
     gitBranchName: str
     active: bool
     publishOriginalBranchName: bool
@@ -28,7 +29,7 @@ class Branch():
 
 @checked
 @dataclass
-class Repo():
+class Repo:
     repoName: str
     branches: list[Branch] | None
     prefix: str
@@ -49,7 +50,7 @@ class ConstructRepo:
         return self.data["prefix"]["dotcomprd"]
 
     def derive_url(self) -> str:
-        url = "https://www.mongodb.com/" + self.prefix + "/"
+        url = join("https://www.mongodb.com", self.prefix)
         return url
 
     def get_branches(self) -> list[Branch] | None:
@@ -86,8 +87,8 @@ class ConstructSitemapEntry:
 
     def derive_extension(self) -> str:
         if self.data.buildsWithSnooty:
-            return "/sitemap-0.xml"
-        return "/sitemap.xml.gz"
+            return "sitemap-0.xml"
+        return "sitemap.xml.gz"
 
     def derive_url_suffix(self) -> str:
         urlSuffix: str = ""
@@ -108,55 +109,56 @@ class ConstructSitemapEntry:
         return suffix
                              
 def run_validation(data) -> tuple[bool, str]:
-    valid = True
     if not check_type(str, data["repoName"]):
-        valid = False
-        return valid, "No repo name?!"
+        raise ValueError("No repo name?!")
     if not data.get("branches"):
-        valid = False
-        return valid, "No branch entry"
+        raise ValueError("No branch entry.")
     if not (data.get("prefix") and data["prefix"].get("dotcomprd")):
-        valid = False
-        return valid, "No dotcomprd prefix entry"
-    return valid, ""
+        raise ValueError("No dotcomprd prefix entry")
+    return
 
-repos_branches = pymongo.MongoClient(os.environ.get('SNOOTY_CONN_STRING'))["pool"].repos_branches
 
-repos_branches_data = repos_branches.find()
-sitemap_urls: list[str] = []
+def main() -> None:
+    repos_branches = pymongo.MongoClient(os.environ.get('SNOOTY_CONN_STRING'))["pool"].repos_branches
 
-for r in repos_branches_data:
-    print(r["repoName"])
-    validity, message = run_validation(r)
-    if not validity:
-        print(message)
-        continue
-    # Skip repos that do not need sitemaps or whose sitemaps are horribly broken because built by legacy tooling
-    if r["repoName"] in excluded_repos:
-        print("Skipping")
-        continue
-    repo = ConstructRepo(r).export()
+    repos_branches_data = repos_branches.find()
+    sitemap_urls: list[str] = []
 
-    if repo.branches:
-        for b in repo.branches:
-            if b.active:
-                print(b.gitBranchName)
-                sitemap_suffix: SitemapUrlSuffix = ConstructSitemapEntry(b).export()
-                sitemap_url: str = repo.baseUrl + sitemap_suffix.urlSuffix + sitemap_suffix.extension
-                print(sitemap_url)
-                sitemap_urls.append(sitemap_url)
-    else:
-        print("Repo has no branches.")
+    for r in repos_branches_data:
+        try:
+            run_validation(r)
+        except Exception as e:
+            print(e.args)
 
-print(sitemap_urls)
+        # Skip repos that do not need sitemaps or whose sitemaps are horribly broken because built by legacy tooling
+        if r["repoName"] in excluded_repos:
+            print("Skipping")
+            continue
+        repo = ConstructRepo(r).export()
 
-# Set up DataFrame from the list of URLs
+        if repo.branches:
+            for b in repo.branches:
+                if b.active:
+                    print(b.gitBranchName)
+                    sitemap_suffix = ConstructSitemapEntry(b).export()
+                    sitemap_url = join(repo.baseUrl, sitemap_suffix.urlSuffix, sitemap_suffix.extension)
+                    print(sitemap_url)
+                    sitemap_urls.append(sitemap_url)
+        else:
+            print("Repo has no branches.")
 
-df = pd.DataFrame(sitemap_urls, columns=["loc"])
+    print(sitemap_urls)
 
-xml_data = df.to_xml(root_name="sitemapindex", row_name="sitemap", xml_declaration=True)
-print(xml_data)
+    # Set up DataFrame from the list of URLs
 
-# Save the XML data to a file
-with open("sitemap-index.xml", "w") as file:
-    file.write(xml_data)
+    df = pd.DataFrame(sitemap_urls, columns=["loc"])
+
+    xml_data = df.to_xml(root_name="sitemapindex", row_name="sitemap", xml_declaration=True)
+    print(xml_data)
+
+    # Save the XML data to a file
+    with open("sitemap-index.xml", "w") as file:
+        file.write(xml_data)
+
+if __name__ == "__main__":
+    main()
