@@ -117,7 +117,6 @@ def run_validation(data) -> tuple[bool, str]:
         raise ValueError("No dotcomprd prefix entry")
     return
 
-
 def main() -> None:
     repos_branches = pymongo.MongoClient(os.environ.get('SNOOTY_CONN_STRING'))["pool"].repos_branches
 
@@ -153,7 +152,7 @@ def main() -> None:
 
     df = pd.DataFrame(sitemap_urls, columns=["loc"])
 
-    xml_data = df.to_xml(root_name="sitemapindex", row_name="sitemap", xml_declaration=True)
+    xml_data = df.to_xml(root_name="sitemapindex", namespaces={"": "http://www.sitemaps.org/schemas/sitemap/0.9"}, row_name="sitemap", xml_declaration=True)
     print(xml_data)
 
     # Save the XML data to a file
