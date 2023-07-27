@@ -7,9 +7,20 @@ from typing import Optional
 from posixpath import join
 
 # TODO: replace this with a flag in the DB like excludeFromSitemapIndex or the like
-excluded_repos = ["docs-404", "docs-meta", "devhub-content", "docs-mongodb-internal", 
-                  "docs-mongodb-internal-base", "docs-csfle-merge", "docs-k8s-operator", 
-                  "docs-php-library", "docs-ruby", "docs-mongoid", "mms-docs"]
+excluded_repos = [
+    "docs-404",
+    "docs-meta",
+    "devhub-content",
+    "docs-mongodb-internal",
+    "docs-mongodb-internal-base",
+    "docs-csfle-merge",
+    "docs-k8s-operator",
+    "docs-php-library",
+    "docs-ruby",
+    "docs-mongoid",
+    "mms-docs",
+]
+
 
 @checked
 @dataclass
@@ -17,6 +28,7 @@ class SitemapUrlSuffix:
     gitBranchName: str
     urlSuffix: str
     extension: str
+
 
 @checked
 @dataclass
@@ -27,6 +39,7 @@ class Branch:
     urlSlug: Optional[str]
     buildsWithSnooty: bool
 
+
 @checked
 @dataclass
 class Repo:
@@ -35,10 +48,11 @@ class Repo:
     prefix: str
     baseUrl: str
 
+
 class ConstructRepo:
     def __init__(self, data) -> None:
         self.data = data
-        
+
         self.repoName: str = data["repoName"]
         self.branches = self.get_branches()
         self.prefix = self.get_prefix()
@@ -59,11 +73,13 @@ class ConstructRepo:
             return None
         branch_list: list[Branch] = []
         for branch in self.data["branches"]:
-            new_branch = Branch(branch["gitBranchName"],
-                                branch.get("active", False),
-                                branch.get("publishOriginalBranchName", False),
-                                branch.get("urlSlug", None),
-                                branch.get("buildsWithSnooty", True))
+            new_branch = Branch(
+                branch["gitBranchName"],
+                branch.get("active", False),
+                branch.get("publishOriginalBranchName", False),
+                branch.get("urlSlug", None),
+                branch.get("buildsWithSnooty", True),
+            )
             branch_list.append(new_branch)
         return branch_list
 
@@ -72,7 +88,7 @@ class ConstructRepo:
             repoName=self.repoName,
             branches=self.branches,
             prefix=self.prefix,
-            baseUrl=self.baseUrl
+            baseUrl=self.baseUrl,
         )
         return repo
 
@@ -99,15 +115,16 @@ class ConstructSitemapEntry:
             urlSuffix = self.gitBranchName
             return urlSuffix
         return urlSuffix
-    
+
     def export(self) -> SitemapUrlSuffix:
         suffix = SitemapUrlSuffix(
-                gitBranchName=self.gitBranchName,
-                urlSuffix=self.urlSuffix,
-                extension=self.extension
-            )
+            gitBranchName=self.gitBranchName,
+            urlSuffix=self.urlSuffix,
+            extension=self.extension,
+        )
         return suffix
-                             
+
+
 def run_validation(data) -> tuple[bool, str]:
     if not check_type(str, data["repoName"]):
         raise ValueError("No repo name?!")
@@ -117,8 +134,11 @@ def run_validation(data) -> tuple[bool, str]:
         raise ValueError("No dotcomprd prefix entry")
     return
 
+
 def main() -> None:
-    repos_branches = pymongo.MongoClient(os.environ.get('SNOOTY_CONN_STRING'))["pool"].repos_branches
+    repos_branches = pymongo.MongoClient(os.environ.get("SNOOTY_CONN_STRING"))[
+        "pool"
+    ].repos_branches
 
     repos_branches_data = repos_branches.find()
     sitemap_urls: list[str] = []
@@ -140,7 +160,9 @@ def main() -> None:
                 if b.active:
                     print(b.gitBranchName)
                     sitemap_suffix = ConstructSitemapEntry(b).export()
-                    sitemap_url = join(repo.baseUrl, sitemap_suffix.urlSuffix, sitemap_suffix.extension)
+                    sitemap_url = join(
+                        repo.baseUrl, sitemap_suffix.urlSuffix, sitemap_suffix.extension
+                    )
                     print(sitemap_url)
                     sitemap_urls.append(sitemap_url)
         else:
@@ -152,12 +174,19 @@ def main() -> None:
 
     df = pd.DataFrame(sitemap_urls, columns=["loc"])
 
-    xml_data = df.to_xml(root_name="sitemapindex", namespaces={"": "http://www.sitemaps.org/schemas/sitemap/0.9"}, row_name="sitemap", xml_declaration=True)
+    xml_data = df.to_xml(
+        root_name="sitemapindex",
+        index=False,
+        namespaces={"": "http://www.sitemaps.org/schemas/sitemap/0.9"},
+        row_name="sitemap",
+        xml_declaration=True,
+    )
     print(xml_data)
 
     # Save the XML data to a file
     with open("sitemap-index.xml", "w") as file:
         file.write(xml_data)
+
 
 if __name__ == "__main__":
     main()
