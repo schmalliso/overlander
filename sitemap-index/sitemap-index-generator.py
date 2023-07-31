@@ -14,11 +14,12 @@ excluded_repos = [
     "docs-mongodb-internal",
     "docs-mongodb-internal-base",
     "docs-csfle-merge",
-    "docs-k8s-operator",
-    "docs-php-library",
-    "docs-ruby",
-    "docs-mongoid",
-    "mms-docs",
+    "docs-k8s-operator", #broken
+    "docs-php-library", #broken
+    "docs-ruby", #broken
+    "docs-mongoid", #broken
+    "mms-docs", #broken
+    "docs-rust" #not yet published
 ]
 
 
