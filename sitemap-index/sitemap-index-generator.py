@@ -6,23 +6,6 @@ from dataclasses import dataclass
 from typing import Optional
 from posixpath import join
 
-# TODO: replace this with a flag in the DB like excludeFromSitemapIndex or the like
-excluded_repos = [
-    "docs-404",
-    "docs-meta",
-    "devhub-content",
-    "docs-mongodb-internal",
-    "docs-mongodb-internal-base",
-    "docs-csfle-merge",
-    "docs-k8s-operator", #broken
-    "docs-php-library", #broken
-    "docs-ruby", #broken
-    "docs-mongoid", #broken
-    "mms-docs", #broken
-    "docs-rust" #not yet published
-]
-
-
 @checked
 @dataclass
 class SitemapUrlSuffix:
@@ -39,6 +22,7 @@ class Branch:
     publishOriginalBranchName: bool
     urlSlug: Optional[str]
     buildsWithSnooty: bool
+    eolType: Optional[str]
 
 
 @checked
@@ -49,6 +33,45 @@ class Repo:
     prefix: str
     baseUrl: str
 
+@checked
+@dataclass
+class DBBranchObj:
+    """Define the branches object in repos_branches"""
+    id: any #ObjectId
+    gitBranchName: str
+    active: bool
+    urlAliases: Optional[list[str]]
+    publishOriginalBranchName: bool
+    urlSlug: str
+    versionSelectorLabel: str
+    isStableBranch: bool
+    buildsWithSnooty: bool
+    aliases: Optional[any]
+    name: Optional[str]
+
+
+@checked
+@dataclass
+class DBPrefixObj:
+    """Define the prefixes object in repos_branches"""
+    stg: str
+    prd: str
+    dotcomstg: str
+    dotcomprd: str
+
+@checked
+@dataclass
+class DBRepoObj:
+    repoName: str
+    branches: list[DBBranchObj]
+    prefix: list[DBPrefixObj]
+    bucket: list[any] #don't care
+    url: list[any] #don't care
+    project: str #don't care
+    search: Optional[list[any]] #don't care
+    groups: Optional[list[any]] #don't care
+    displayName: Optional[str] #don't care
+    _id: any #don't care
 
 class ConstructRepo:
     def __init__(self, data) -> None:
@@ -60,9 +83,9 @@ class ConstructRepo:
         self.baseUrl = self.derive_url()
 
     def get_prefix(self) -> str:
-        if not check_type(str, self.data["prefix"]["dotcomprd"]):
+        if not check_type(str, self.data["docset"][0]["prefix"]["dotcomprd"]):
             raise TypeError
-        return self.data["prefix"]["dotcomprd"]
+        return self.data["docset"][0]["prefix"]["dotcomprd"]
 
     def derive_url(self) -> str:
         url = join("https://www.mongodb.com", self.prefix)
@@ -80,6 +103,7 @@ class ConstructRepo:
                 branch.get("publishOriginalBranchName", False),
                 branch.get("urlSlug", None),
                 branch.get("buildsWithSnooty", True),
+                branch.get("eol_type", None)
             )
             branch_list.append(new_branch)
         return branch_list
@@ -130,9 +154,11 @@ def run_validation(data) -> tuple[bool, str]:
     if not check_type(str, data["repoName"]):
         raise ValueError("No repo name?!")
     if not data.get("branches"):
-        raise ValueError("No branch entry.")
-    if not (data.get("prefix") and data["prefix"].get("dotcomprd")):
-        raise ValueError("No dotcomprd prefix entry")
+        raise ValueError(f"No branch entry for {data['repoName']}.")
+    if not (data["docset"].get("prefix") and data["docset"]["prefix"].get("dotcomprd")):
+        raise ValueError(f"No dotcomprd prefix entry for {data['repoName']}")
+    if not (data.get("prodDeployable")):
+        raise ValueError(f"Cannot determine prod deployablility for {data['repoName']}")
     return
 
 
@@ -141,7 +167,16 @@ def main() -> None:
         "pool"
     ].repos_branches
 
-    repos_branches_data = repos_branches.find()
+    lookup_pipeline = [
+        {"$lookup": {
+            "from": "docsets",
+            "localField": "_id",
+            "foreignField": "repos",
+            "as": "docset"
+        }}
+    ]
+
+    repos_branches_data = repos_branches.aggregate(lookup_pipeline)
     sitemap_urls: list[str] = []
 
     for r in repos_branches_data:
@@ -150,15 +185,17 @@ def main() -> None:
         except Exception as e:
             print(e.args)
 
-        # Skip repos that do not need sitemaps or whose sitemaps are horribly broken because built by legacy tooling
-        if r["repoName"] in excluded_repos:
-            print("Skipping")
+        print(r)
+
+        # Skip repos that do not need sitemaps and br 
+        if r["internalOnly"] or not r["prodDeployable"]:
+            print(f"Skipping {r['repoName']}")
             continue
         repo = ConstructRepo(r).export()
 
         if repo.branches:
             for b in repo.branches:
-                if b.active:
+                if b.active and not (b.eolType or b.urlSlug == "upcoming" or b.urlSlug == "beta" or (b.gitBranchName == "master" and b.urlSlug == "master")):
                     print(b.gitBranchName)
                     sitemap_suffix = ConstructSitemapEntry(b).export()
                     sitemap_url = join(
@@ -185,7 +222,7 @@ def main() -> None:
     print(xml_data)
 
     # Save the XML data to a file
-    with open("sitemap-index.xml", "w") as file:
+    with open("sitemap-index-full.xml", "w") as file:
         file.write(xml_data)
 
 
